@@ -83,6 +83,7 @@ export const createInstance = async (challengeId, teamId, log) => {
   const instanceId = getId()
   const commonLabels = makeCommonLabels({ challengeId, teamId, instanceId })
   const namespace = getNamespaceName(challengeId, teamId)
+  const host = getHost(challengeId, instanceId)
   const namespaceManifest = makeNamespaceManifest({
     name: namespace,
     labels: commonLabels,
@@ -121,7 +122,7 @@ export const createInstance = async (challengeId, teamId, log) => {
     throw new InstanceCreationError('Could not create network policies', err)
   }
 
-  const makeDeployment = makeDeploymentFactory(commonLabels)
+  const makeDeployment = makeDeploymentFactory(commonLabels, host)
 
   try {
     await Promise.all(
@@ -187,7 +188,7 @@ export const createInstance = async (challengeId, teamId, log) => {
 
   try {
     const ingressRoute = makeIngress({
-      host: getHost(challengeId, instanceId),
+      host: host,
       serviceName: challengeConfig.expose.pod,
       servicePort: challengeConfig.expose.port,
       numMiddlewares: challengeConfig.middlewares?.length ?? 0,

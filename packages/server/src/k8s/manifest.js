@@ -1,5 +1,4 @@
 import crypto from 'crypto'
-
 import config from '../config.js'
 import {
   ANNOTATION_TTL,
@@ -103,36 +102,64 @@ export const makeNetworkPolicies = ({
   },
 ]
 
+/**
+ * Creates a factory function for generating Deployment manifests.
+ * This version injects the external hostname as an environment variable.
+ * @param {object} commonLabels - Labels to apply to all resources.
+ * @param {string} host - The external hostname calculated for this instance.
+ * @returns {function} A function that takes a pod config and returns a Deployment manifest.
+ */
 export const makeDeploymentFactory =
-  (commonLabels) =>
-  ({ name, egress, spec }) => ({
-    metadata: {
-      name,
-      labels: {
-        [LABEL_POD]: name,
-        ...commonLabels,
-      },
-    },
-    spec: {
-      replicas: 1,
-      selector: {
-        matchLabels: {
+  (commonLabels, host) => // <-- Added 'host' parameter
+  ({ name, egress, spec }) => {
+    // Deep clone the spec to avoid modifying the original CRD spec object
+    const podSpec = JSON.parse(JSON.stringify(spec));
+
+    // Inject the hostname into environment variables for each container
+    if (podSpec.containers && Array.isArray(podSpec.containers)) {
+      podSpec.containers.forEach(container => {
+        if (!container.env) {
+          container.env = [];
+        }
+        // Add or update the EXTERNAL_HOSTNAME variable
+        const envVarIndex = container.env.findIndex(env => env.name === 'EXTERNAL_HOSTNAME');
+        if (envVarIndex > -1) {
+          container.env[envVarIndex].value = host; // Update if exists
+        } else {
+          container.env.push({ name: 'EXTERNAL_HOSTNAME', value: host }); // Add if new
+        }
+      });
+    }
+
+    return {
+      metadata: {
+        name,
+        labels: {
           [LABEL_POD]: name,
           ...commonLabels,
         },
       },
-      template: {
-        metadata: {
-          labels: {
+      spec: {
+        replicas: 1,
+        selector: {
+          matchLabels: {
             [LABEL_POD]: name,
-            [LABEL_EGRESS]: (egress ?? false).toString(),
             ...commonLabels,
           },
         },
-        spec,
+        template: {
+          metadata: {
+            labels: {
+              [LABEL_POD]: name,
+              [LABEL_EGRESS]: (egress ?? false).toString(),
+              ...commonLabels,
+            },
+          },
+          spec: podSpec, // <-- Use the modified podSpec with the injected env var
+        },
       },
-    },
-  })
+    };
+  }
 
 export const makeServiceFactory =
   (commonLabels) =>
@@ -185,7 +212,7 @@ export const makeIngressRouteFactory =
           ],
         },
       ],
-      tls: {},
+      tls: {}, // Assuming TLS is handled by Traefik entrypoint or cert-manager
     },
   })
 
