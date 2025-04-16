@@ -98,6 +98,35 @@ spec:
                         Port is the port that will be exposed. It must be a
                         valid port number (1-65535, inclusive).
                   required: [kind, pod, port]
+                extraExpose:
+                  type: array
+                  description: >-
+                    Additional endpoints to expose. Each item defines an additional
+                    port to expose with its own unique hostname suffix.
+                  items:
+                    type: object
+                    properties:
+                      kind:
+                        type: string
+                        enum: [tcp, http]
+                        description: >-
+                          Connection type, either tcp or http.
+                      pod:
+                        type: string
+                        description: >-
+                          Pod is the name of the pod that will be exposed.
+                      port:
+                        type: integer
+                        minimum: 1
+                        maximum: 65535
+                        description: >-
+                          Port is the port that will be exposed.
+                      hostname:
+                        type: string
+                        description: >-
+                          Suffix to append to the hostname. Will result in
+                          ${challengeId}-${instanceId}-${hostname}.${config.challengeDomain}
+                    required: [kind, pod, port, hostname]
                 middlewares:
                   type: array
                   description: >-

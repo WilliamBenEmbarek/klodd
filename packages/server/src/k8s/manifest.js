@@ -12,8 +12,14 @@ import {
 } from './const.js'
 
 export const getId = () => crypto.randomBytes(8).toString('hex')
-export const getHost = (challengeId, instanceId) =>
-  `${challengeId}-${instanceId}.${config.challengeDomain}`
+export const getHost = (challengeId, instanceId, suffix = null) => {
+  const base = `${challengeId}-${instanceId}`;
+  const domain = config.challengeDomain;
+  if (suffix) {
+    return `${base}-${suffix}.${domain}`;
+  }
+  return `${base}.${domain}`;
+}
 export const getNamespaceName = (challengeId, teamId) =>
   `klodd-${challengeId}-${teamId}`
 
@@ -189,7 +195,7 @@ export const makeIngressRouteFactory =
   ({ host, serviceName, servicePort, numMiddlewares }) => ({
     apiVersion: 'traefik.io/v1alpha1',
     kind: kind === 'http' ? 'IngressRoute' : 'IngressRouteTCP',
-    metadata: { name: 'ingress' },
+    metadata: { name: `ingress-${host.split('.')[0]}` }, // Create unique name based on hostname
     spec: {
       entryPoints: [
         kind === 'http'

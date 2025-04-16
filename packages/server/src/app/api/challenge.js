@@ -37,6 +37,18 @@ const routes = async (fastify, _options) => {
               },
               required: ['kind', 'host'],
             },
+            additionalServers: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  kind: { type: 'string' },
+                  host: { type: 'string' },
+                  port: { type: 'integer' },
+                  }
+              },
+              required: ['kind', 'host']
+            },
             time: {
               type: 'object',
               properties: {
@@ -54,7 +66,18 @@ const routes = async (fastify, _options) => {
     handler: async (req, _res) => {
       const { challengeId } = req.params
       const teamId = req.user.sub
-      return getInstance(challengeId, teamId)
+      const instanceData = await getInstance(challengeId, teamId);
+
+      const {servers, ...restData} = instanceData;
+      const mainServer = servers[0];
+
+      const additionalServers = servers.slice(1);
+
+      return {
+        ...restData,
+        server: mainServer,
+        additionalServers: additionalServers.length > 0 ? additionalServers : undefined
+      };
     },
   })
 
@@ -85,6 +108,19 @@ const routes = async (fastify, _options) => {
               },
               required: ['kind', 'host'],
             },
+            additionalServers: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  kind: { type: 'string' },
+                  host: { type: 'string' },
+                  port: { type: 'integer' },
+                  name: { type: 'string' }
+                },
+                required: ['kind', 'host']
+              }
+            },
           },
           required: ['name', 'status', 'timeout', 'server'],
         },
@@ -98,7 +134,22 @@ const routes = async (fastify, _options) => {
       try {
         const instance = await createInstance(challengeId, teamId, req.log)
         req.log.info('instance created')
-        return instance
+    
+        // Extract the servers array and restructure the response
+        const { servers, ...restData } = instance;
+    
+        // The first server is the main/primary server
+        const mainServer = servers[0];
+    
+        // Any additional servers (if they exist)
+        const additionalServers = servers.slice(1);
+    
+        // Return data in the format expected by the client
+        return {
+          ...restData,
+          server: mainServer,
+          additionalServers: additionalServers.length > 0 ? additionalServers : undefined
+        };
       } catch (err) {
         if (err instanceof InstanceExistsError) {
           req.log.debug(err)

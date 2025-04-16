@@ -1,3 +1,32 @@
+.additional-servers {
+  margin-top: 1.5rem;
+  width: 100%;
+}
+
+.additional-servers h3 {
+  margin-bottom: 0.75rem;
+  font-size: 1.2em;
+}
+
+.servers-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: 100%;
+}
+
+.server-item {
+  padding: 1rem;
+  border-radius: 5px;
+  background-color: rgba(127, 127, 127, 0.05);
+  width: 100%;
+}
+
+.server-name {
+  font-weight: bold;
+  margin-bottom: 0.5rem;
+}
+
 .status-text {
   font-weight: bold;
 }

@@ -173,6 +173,19 @@ const Challenge = () => {
         {data.status}
       </span>
       {data.server && <Server {...data.server} />}
+      {data.additionalServers && data.additionalServers.length > 0 && (
+        <div className="additional-servers">
+          <h3>Additional Services</h3>
+          <div className="servers-list">
+            {data.additionalServers.map((server, index) => (
+              <div key={index} className="server-item">
+                {server.name && <div className="server-name">{server.name}</div>}
+                <Server {...server} />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       {data.time && (
         <p>
           Stopping <TimeAgo future date={data.time.stop} />

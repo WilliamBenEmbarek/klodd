@@ -62,8 +62,22 @@ export const getInstance = async (challengeId, teamId) => {
     (deployment.status.availableReplicas ?? 0) > 0 ? 'Running' : 'Starting'
 
   const instanceId = namespace.metadata.labels[LABEL_INSTANCE]
-  const { kind } = challengeConfig.expose
-  instance.server = getServer(challengeId, instanceId, kind)
+
+  const primaryServer = getServer(challengeId, instanceId, challengeConfig.expose.kind);
+
+  const servers = [primaryServer];
+
+  if (challengeConfig.extraExpose && challengeConfig.extraExpose.length > 0) {
+    challengeConfig.extraExpose.forEach(expose => {
+      servers.push({
+        kind: expose.kind,
+        host: getHost(challengeId, instanceId, expose.hostname),
+        ...(expose.kind === 'tcp' && {port: config.traefik.tcpPort})
+      });
+    });
+  }
+
+  instance.servers = servers;
 
   const creation = namespace.metadata.creationTimestamp.getTime()
   const ttl = challengeConfig.timeout
@@ -204,15 +218,61 @@ export const createInstance = async (challengeId, teamId, log) => {
       .then(({ body }) => {
         log.debug({ namespace, body }, 'created IngressRoute')
       })
+
+    if (challengeConfig.extraExpose && challengeConfig.extraExpose.length > 0) {
+      await Promise.all(
+        challengeConfig.extraExpose.map(async (expose) => {
+          const extraHost = getHost(challengeId, instanceId, expose.hostname);
+          const extraIngressPlural = 
+            expose.kind === 'http'
+            ? 'ingressroutes'
+            : 'ingressroutetcps';
+          const extraIngress = makeIngressRouteFactory(expose.kind)({
+            host: extraHost,
+            serviceName: expose.pod,
+            servicePort: expose.port,
+            numMiddlewares: 0, // NO middlewares for extra because we dont even use them
+          });
+
+          return customApi
+            .createNamespacedCustomObject(
+              'traefik.io',
+              'v1alpha1',
+              namespace,
+              extraIngressPlural,
+              extraIngress
+            )
+            .then(({body}) => {
+              log.debug({ namespace, body}, `created extra IngressRoute for ${extraHost}`)
+            });
+        })
+      );
+    }
   } catch (err) {
-    throw new InstanceCreationError('Could not create ingress', err)
+    throw new InstanceCreationError('Could not create ingress routes', err)
+  }
+
+  const servers =[{
+    kind: challengeConfig.expose.kind,
+    host: host,
+    ...(challengeConfig.expose.kind == 'tcp' && {port: config.traefik.tcpPort})
+  }];
+
+  if (challengeConfig.extraExpose && challengeConfig.extraExpose.length > 0) {
+    challengeConfig.extraExpose.forEach(expose => {
+      servers.push({
+        kind: expose.kind,
+        host: getHost(challengeId, instanceId, expose.hostname),
+        ...(expose.kind === 'tcp' && {port: config.traefik.tcpPort})
+      });
+    });
   }
 
   return {
     name: challengeConfig.name,
     status: 'Starting',
     timeout: challengeConfig.timeout,
-    server: getServer(challengeId, instanceId, challengeConfig.expose.kind),
+    servers: servers
   }
 }
 
