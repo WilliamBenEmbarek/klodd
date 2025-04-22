@@ -68,15 +68,28 @@ const routes = async (fastify, _options) => {
       const teamId = req.user.sub
       const instanceData = await getInstance(challengeId, teamId);
 
-      const {servers, ...restData} = instanceData;
-      const mainServer = servers[0];
+      // Check if servers array exists
+      const { servers, ...restData } = instanceData;
 
-      const additionalServers = servers.slice(1);
+      // Only process servers if they exist
+      let mainServer = undefined;
+      let additionalServers = undefined;
 
+      if (servers && servers.length > 0) {
+        // The first server is the main/primary server
+        mainServer = servers[0];
+
+        // Any additional servers (if they exist)
+        if (servers.length > 1) {
+          additionalServers = servers.slice(1);
+        }
+      }
+
+      // Return data in the format expected by the client
       return {
         ...restData,
         server: mainServer,
-        additionalServers: additionalServers.length > 0 ? additionalServers : undefined
+        additionalServers: additionalServers
       };
     },
   })
@@ -130,34 +143,42 @@ const routes = async (fastify, _options) => {
     handler: async (req, res) => {
       const { challengeId } = req.params
       const teamId = req.user.sub
-
+    
       try {
         const instance = await createInstance(challengeId, teamId, req.log)
         req.log.info('instance created')
     
-        // Extract the servers array and restructure the response
+        // Extract the servers array with defensive checks
         const { servers, ...restData } = instance;
     
-        // The first server is the main/primary server
-        const mainServer = servers[0];
+        // Only process servers if they exist
+        let mainServer = undefined;
+        let additionalServers = undefined;
     
-        // Any additional servers (if they exist)
-        const additionalServers = servers.slice(1);
+        if (servers && servers.length > 0) {
+          // The first server is the main/primary server
+          mainServer = servers[0];
+    
+          // Any additional servers (if they exist)
+          if (servers.length > 1) {
+            additionalServers = servers.slice(1);
+          }
+        }
     
         // Return data in the format expected by the client
         return {
           ...restData,
           server: mainServer,
-          additionalServers: additionalServers.length > 0 ? additionalServers : undefined
+          additionalServers: additionalServers
         };
       } catch (err) {
+        // Error handling remains unchanged
         if (err instanceof InstanceExistsError) {
           req.log.debug(err)
           req.log.debug(err.cause)
           return res.conflict(err.message)
         }
         if (err instanceof InstanceCreationError) {
-          // this is likely a misconfiguration, so log it
           req.log.error(err)
           req.log.error(err.cause)
           return res.conflict(err.message)

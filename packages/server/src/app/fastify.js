@@ -7,7 +7,7 @@ const production = process.env.NODE_ENV === 'production'
 
 const fastify = Fastify({
   logger: {
-    level: config.logLevel ?? (production ? 'info' : 'debug'),
+    level: config.logLevel ?? (production ? 'debug' : 'debug'),
     transport: production
       ? undefined
       : {
