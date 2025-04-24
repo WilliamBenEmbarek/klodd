@@ -11,13 +11,13 @@ const challengeResources = new Map()
 const saveApiObj = (apiObj) => {
   const challengeId = apiObj.metadata.name
   challengeResources.set(challengeId, apiObj.spec)
-  log.debug({ spec: apiObj.spec }, 'saved challenge %s', challengeId)
+  log.info({ spec: apiObj.spec }, 'saved challenge %s', challengeId)
 }
 
 const deleteApiObj = (apiObj) => {
   const challengeId = apiObj.metadata.name
   challengeResources.delete(challengeId)
-  log.debug('deleted challenge %s', challengeId)
+  log.info('deleted challenge %s', challengeId)
 }
 
 const stopAll = async (challengeId) => {
@@ -32,7 +32,7 @@ const stopAll = async (challengeId) => {
   return Promise.all(
     body.items.map((namespace) => deleteNamespace(namespace.metadata.name))
   ).then((deleted) => {
-    log.debug('stopped %d instances of %s', deleted.length, challengeId)
+    log.info('stopped %d instances of %s', deleted.length, challengeId)
   })
 }
 
@@ -67,9 +67,17 @@ const subscribeToCluster = async () => {
     },
     (err) => {
       if (err) {
-        throw err
+        log.warn({ err }, 'Watch connection error, attempting to reconnect')
+        // Don't throw the error, just attempt to reconnect
+        setTimeout(() => {
+          log.info('Reconnecting to cluster watch')
+          subscribeToCluster()
+        }, 3000) // Add a small delay to avoid hammering the API server
+        return
       }
-      subscribeToCluster() // TODO: is this proper usage?
+      // This executes when the watch ends normally
+      log.info('Watch connection closed normally, reconnecting')
+      subscribeToCluster()
     }
   )
 }
